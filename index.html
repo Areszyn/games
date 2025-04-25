@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Emoji Match Game</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: white;
+      overflow-x: hidden;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 20px;
+      font-size: 2rem;
+    }
+
+    .screen, .game-container {
+      display: none;
+      padding: 20px;
+    }
+
+    .screen.active, .game-container.active {
+      display: block;
+      animation: fadeIn 1s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .player-inputs input {
+      padding: 8px;
+      margin: 5px;
+      border-radius: 6px;
+      border: none;
+      font-size: 1rem;
+    }
+
+    .game-board {
+      display: grid;
+      gap: 10px;
+      justify-content: center;
+      margin: 20px auto;
+    }
+
+    .card {
+      width: 70px;
+      height: 70px;
+      background: #fff;
+      border-radius: 10px;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.5s ease;
+    }
+
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      border-radius: 10px;
+    }
+
+    .card-front {
+      background: #444;
+      color: #fff;
+    }
+
+    .card-back {
+      background: #fff;
+      color: #000;
+      transform: rotateY(180deg);
+    }
+
+    .players {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .player {
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 8px;
+    }
+
+    .player.active {
+      border: 2px solid yellow;
+      background: rgba(255,255,255,0.2);
+    }
+
+    .controls {
+      margin-top: 10px;
+    }
+
+    .controls button {
+      padding: 8px 16px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      margin: 0 5px;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 2rem;
+      z-index: 10;
+      display: none;
+    }
+
+    .overlay.active {
+      display: flex;
+    }
+
+    canvas {
+      position: fixed;
+      top: 0; left: 0;
+      pointer-events: none;
+      z-index: 20;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Emoji Match Game</h1>
+
+  <div class="screen active" id="startScreen">
+    <p>Enter 2 to 6 player names:</p>
+    <div class="player-inputs" id="playerInputs">
+      <input type="text" placeholder="Player 1" />
+      <input type="text" placeholder="Player 2" />
+    </div>
+    <button onclick="addPlayerInput()">Add Player</button>
+    <button onclick="startGame()">Start Game</button>
+  </div>
+
+  <div class="game-container" id="gameScreen">
+    <div class="players" id="players"></div>
+    <div class="game-board" id="gameBoard"></div>
+    <div class="controls">
+      <button onclick="pauseGame()">Pause</button>
+      <button onclick="resumeGame()">Resume</button>
+      <button onclick="restartGame()">Restart</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="pauseOverlay">Paused</div>
+
+  <canvas id="confettiCanvas"></canvas>
+
+  <script>
+    const emojis = ['🍕','🚀','🎮','⚽','🎧','🍔','🐶','🐱','☕','🌈','❤️','💎','🎲','🦄','🍩','🎉','🐵','👽','🐸','🧁'];
+    let players = [], scores = [], currentPlayer = 0, flipped = [], matched = 0;
+    let pause = false;
+
+    const board = document.getElementById('gameBoard');
+    const playerDisplay = document.getElementById('players');
+    const confettiCanvas = document.getElementById('confettiCanvas');
+    const ctx = confettiCanvas.getContext('2d');
+    let confettiParticles = [];
+
+    function addPlayerInput() {
+      const inputs = document.getElementById('playerInputs');
+      if (inputs.children.length < 6)
+        inputs.appendChild(document.createElement('input')).placeholder = `Player ${inputs.children.length + 1}`;
+    }
+
+    function startGame() {
+      const names = Array.from(document.querySelectorAll('#playerInputs input'))
+        .map(i => i.value.trim()).filter(name => name);
+
+      if (names.length < 2) return alert('At least 2 players required!');
+
+      players = names.map(name => ({ name, emoji: emojis.splice(Math.floor(Math.random() * emojis.length), 1)[0] }));
+      scores = new Array(players.length).fill(0);
+      currentPlayer = 0;
+      matched = 0;
+      pause = false;
+      flipped = [];
+
+      const pairs = 6 + players.length * 2;
+      const chosen = emojis.sort(() => 0.5 - Math.random()).slice(0, pairs);
+      const cards = shuffle([...chosen, ...chosen]);
+
+      // Grid calculation
+      const cols = Math.ceil(Math.sqrt(cards.length));
+      board.style.gridTemplateColumns = `repeat(${cols}, 70px)`;
+      board.innerHTML = '';
+      playerDisplay.innerHTML = '';
+
+      players.forEach((p, i) => {
+        const div = document.createElement('div');
+        div.className = 'player' + (i === 0 ? ' active' : '');
+        div.id = `player${i}`;
+        div.textContent = `${p.emoji} ${p.name}: 0`;
+        playerDisplay.appendChild(div);
+      });
+
+      cards.forEach((icon, index) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.dataset.icon = icon;
+        card.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front">?</div>
+            <div class="card-back">${icon}</div>
+          </div>
+        `;
+        card.addEventListener('click', () => handleCard(card));
+        board.appendChild(card);
+      });
+
+      document.getElementById('startScreen').classList.remove('active');
+      document.getElementById('gameScreen').classList.add('active');
+    }
+
+    function handleCard(card) {
+      if (pause || card.classList.contains('flipped') || flipped.length === 2) return;
+      card.classList.add('flipped');
+      flipped.push(card);
+
+      if (flipped.length === 2) {
+        const [c1, c2] = flipped;
+        if (c1.dataset.icon === c2.dataset.icon) {
+          matched++;
+          scores[currentPlayer]++;
+          updateScores();
+          flipped = [];
+
+          if (matched === board.children.length / 2) showWinner();
+        } else {
+          setTimeout(() => {
+            c1.classList.remove('flipped');
+            c2.classList.remove('flipped');
+            flipped = [];
+            switchPlayer();
+          }, 1000);
+        }
+      }
+    }
+
+    function updateScores() {
+      players.forEach((p, i) => {
+        document.getElementById(`player${i}`).textContent = `${p.emoji} ${p.name}: ${scores[i]}`;
+      });
+    }
+
+    function switchPlayer() {
+      document.getElementById(`player${currentPlayer}`).classList.remove('active');
+      currentPlayer = (currentPlayer + 1) % players.length;
+      document.getElementById(`player${currentPlayer}`).classList.add('active');
+    }
+
+    function restartGame() {
+      location.reload();
+    }
+
+    function pauseGame() {
+      pause = true;
+      document.getElementById('pauseOverlay').classList.add('active');
+    }
+
+    function resumeGame() {
+      pause = false;
+      document.getElementById('pauseOverlay').classList.remove('active');
+    }
+
+    function showWinner() {
+      const max = Math.max(...scores);
+      const winnerIndex = scores.indexOf(max);
+      const winner = players[winnerIndex];
+      const message = `${winner.emoji} ${winner.name} wins!`;
+
+      launchConfetti();
+      const winBox = document.createElement('div');
+      winBox.className = 'overlay active';
+      winBox.innerText = message;
+      document.body.appendChild(winBox);
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    // Confetti
+    function launchConfetti() {
+      confettiCanvas.width = window.innerWidth;
+      confettiCanvas.height = window.innerHeight;
+      for (let i = 0; i < 100; i++) {
+        confettiParticles.push({
+          x: Math.random() * confettiCanvas.width,
+          y: Math.random() * confettiCanvas.height,
+          r: Math.random() * 6 + 4,
+          c: `hsl(${Math.random()*360},100%,50%)`,
+          vx: Math.random() * 2 - 1,
+          vy: Math.random() * -3 - 2
+        });
+      }
+      requestAnimationFrame(drawConfetti);
+    }
+
+    function drawConfetti() {
+      ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+      confettiParticles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = p.c;
+        ctx.fill();
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.05;
+      });
+      confettiParticles = confettiParticles.filter(p => p.y < confettiCanvas.height);
+      if (confettiParticles.length) requestAnimationFrame(drawConfetti);
+    }
+  </script>
+</body>
+</html>
