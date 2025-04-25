@@ -3,148 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Endless Runner Game</title>
+  <title>Adventure Game Embed</title>
   <style>
-    body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
-    canvas { display: block; margin: 0 auto; }
-    #startScreen {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      font-size: 30px; color: #fff; display: block;
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: #f4f4f4;
+      font-family: Arial, sans-serif;
     }
-    .game-overlay {
-      position: absolute; top: 20px; left: 20px; font-size: 20px; color: #fff;
+
+    h1 {
+      text-align: center;
+      margin-top: 20px;
+      font-size: 24px;
+      color: #333;
+    }
+
+    iframe {
+      display: block;
+      width: 100%;
+      height: 100vh; /* Full viewport height */
+      border: none;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
-  <div id="startScreen">Tap to Start</div>
-  <div class="game-overlay" id="score">Score: 0</div>
+  <h1>Play Nyamo's Adventure!</h1>
 
-  <script>
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
+  <!-- Embed Nyamo's Adventure Game -->
+  <iframe src="https://ddrkirbyisq.itch.io/nyamos-adventure?embed" width="800" height="600" frameborder="0" allowfullscreen="true"></iframe>
 
-    // Set canvas size to fit mobile screen
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    // Variables for the player and game mechanics
-    let player = {
-      x: 50,
-      y: canvas.height - 100,
-      width: 50,
-      height: 50,
-      speed: 5,
-      dy: 0,
-      gravity: 0.5,
-      jumpPower: -12,
-      jumping: false,
-      image: new Image(),
-    };
-
-    // Background layers and season change
-    let background = {
-      image: new Image(),
-      color: 'skyblue',
-    };
-    let groundY = canvas.height - 50;
-    let gameOver = false;
-    let score = 0;
-
-    // Load player and background images from the internet
-    player.image.src = 'https://www.pngmart.com/files/6/Running-Person-PNG-Free-Download.png';  // Example running character image
-    background.image.src = 'https://example.com/sky_background.jpg';  // Replace with actual day/night cycle background image
-
-    // Season change logic
-    let isDay = true;  // Day/Night toggle
-    let season = 'summer';  // Starting season
-
-    // Key event to handle jumping
-    canvas.addEventListener("touchstart", () => {
-      if (!player.jumping && !gameOver) {
-        player.jumping = true;
-      }
-    });
-
-    // Start the game
-    function startGame() {
-      document.getElementById("startScreen").style.display = "none";
-      player.y = canvas.height - 100;
-      player.dy = 0;
-      gameOver = false;
-      score = 0;
-      changeSeason();
-      animate();
-    }
-
-    // Change season (and day/night cycle)
-    function changeSeason() {
-      if (score % 1000 === 0) {
-        season = (season === 'summer') ? 'winter' : 'summer';  // Switch seasons
-      }
-
-      // Day/Night cycle logic (based on score)
-      if (score % 200 === 0) {
-        isDay = !isDay;
-        background.color = isDay ? '#3498db' : '#2c3e50'; // Blue for day, dark for night
-        background.image.src = isDay ? 'https://example.com/day_sky.jpg' : 'https://example.com/night_sky.jpg'; // Replace with actual URLs for day and night sky images
-      }
-    }
-
-    // Game loop
-    function animate() {
-      if (gameOver) {
-        document.getElementById("startScreen").style.display = "block";
-        document.getElementById("startScreen").textContent = "Game Over! Tap to Restart";
-        return;
-      }
-
-      // Background and season change
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = background.color;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(background.image, 0, 0, canvas.width, canvas.height);
-
-      // Handle player gravity and jumping
-      if (player.jumping) {
-        player.dy = player.jumpPower;
-        player.jumping = false;
-      }
-      player.dy += player.gravity;
-      player.y += player.dy;
-
-      // Prevent player from falling through the ground
-      if (player.y >= groundY - player.height) {
-        player.y = groundY - player.height;
-        player.dy = 0;
-      }
-
-      // Draw the player (character running)
-      ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
-
-      // Update score
-      score++;
-      document.getElementById('score').innerText = `Score: ${score}`;
-
-      // Change season or day/night cycle
-      changeSeason();
-
-      // Loop the animation
-      requestAnimationFrame(animate);
-    }
-
-    // Start the game
-    canvas.addEventListener("touchstart", () => {
-      if (gameOver) {
-        startGame();
-      }
-    });
-
-    // Start game automatically when ready
-    document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("startScreen").style.display = "block";
-    });
-  </script>
 </body>
 </html>
