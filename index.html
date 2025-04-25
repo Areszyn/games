@@ -1,263 +1,150 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Emoji Match Game</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Endless Runner Game</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background: linear-gradient(to bottom, #1e1e2f, #12121a);
-      color: #fff;
-      overflow: hidden;
+    body { margin: 0; padding: 0; overflow: hidden; font-family: Arial, sans-serif; }
+    canvas { display: block; margin: 0 auto; }
+    #startScreen {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 30px; color: #fff; display: block;
     }
-    #orientation-warning, #ipad-warning {
-      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-      background: #000d; display: flex; justify-content: center; align-items: center;
-      z-index: 9999; font-size: 1.5em; text-align: center;
-    }
-    #orientation-warning { display: none; }
-    #ipad-warning { display: none; }
-    @media (orientation: landscape) {
-      #orientation-warning { display: flex; }
-    }
-    @media (min-width: 768px) {
-      #ipad-warning { display: flex; }
-    }
-    .container {
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-    .card-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-      gap: 10px;
-      max-width: 420px;
-      margin-top: 1rem;
-    }
-    .card {
-      width: 100%; height: 70px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(6px);
-      border-radius: 12px;
-      display: flex; justify-content: center; align-items: center;
-      font-size: 2rem;
-      cursor: pointer;
-      transition: transform 0.3s;
-      perspective: 600px;
-      user-select: none;
-    }
-    .card.flipped { background: rgba(255,255,255,0.3); transform: rotateY(180deg); }
-    .card.matched { background: limegreen; color: #000; }
-    .controls {
-      margin-top: 1rem;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      justify-content: center;
-    }
-    button {
-      padding: 0.5rem 1rem;
-      background: #2e2e4d;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 1rem;
-    }
-    .stats {
-      margin-top: 0.5rem;
-      font-size: 1rem;
-    }
-    .hidden { display: none; }
-    #confetti-canvas {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100vw; height: 100vh;
-      pointer-events: none;
-      z-index: 9998;
+    .game-overlay {
+      position: absolute; top: 20px; left: 20px; font-size: 20px; color: #fff;
     }
   </style>
 </head>
 <body>
-  <div id="ipad-warning">This game only works on mobile phones. Please switch to a mobile device.</div>
-  <div id="orientation-warning">Please rotate your phone to portrait mode.</div>
-  <canvas id="confetti-canvas"></canvas>
-
-  <div class="container">
-    <h1>Emoji Match</h1>
-    <div class="stats">
-      <div id="timer">Time: 00:00</div>
-      <div id="combo">Combo: 0</div>
-      <div id="turn">Player: 1</div>
-    </div>
-    <div class="controls">
-      <button onclick="startGame()">Start Game</button>
-      <button onclick="togglePause()">Pause/Resume</button>
-      <button onclick="useHint()">Hint</button>
-      <button onclick="toggleTheme()">Toggle Theme</button>
-      <button onclick="undoMove()">Undo</button>
-    </div>
-    <div class="card-grid" id="card-grid"></div>
-  </div>
-
-  <audio id="flip-sound" src="flip.mp3"></audio>
-  <audio id="match-sound" src="match.mp3"></audio>
-  <audio id="wrong-sound" src="wrong.mp3"></audio>
-  <audio id="win-sound" src="win.mp3"></audio>
-  <audio id="bg-music" src="music.mp3" loop></audio>
+  <canvas id="gameCanvas"></canvas>
+  <div id="startScreen">Tap to Start</div>
+  <div class="game-overlay" id="score">Score: 0</div>
 
   <script>
-    let cards = [];
-    let flippedCards = [];
-    let matchedCards = [];
-    let playerTurn = 1;
-    let comboCount = 0;
-    let moves = 0;
-    let timerInterval;
-    let timerSeconds = 0;
-    let gamePaused = false;
-    let gameStarted = false;
-    let hintsUsed = 0;
-    const emojis = ["🍎", "🍌", "🍇", "🍉", "🍒", "🍓", "🍊", "🍍", "🍔", "🍕", "🍟", "🍿"];
-    const totalPlayers = 6;
-    const cardsPerPlayer = 6;
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
 
-    const flipSound = document.getElementById("flip-sound");
-    const matchSound = document.getElementById("match-sound");
-    const wrongSound = document.getElementById("wrong-sound");
-    const winSound = document.getElementById("win-sound");
-    const bgMusic = document.getElementById("bg-music");
+    // Set canvas size to fit mobile screen
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
-    // Start Game
+    // Variables for the player and game mechanics
+    let player = {
+      x: 50,
+      y: canvas.height - 100,
+      width: 50,
+      height: 50,
+      speed: 5,
+      dy: 0,
+      gravity: 0.5,
+      jumpPower: -12,
+      jumping: false,
+      image: new Image(),
+    };
+
+    // Background layers and season change
+    let background = {
+      image: new Image(),
+      color: 'skyblue',
+    };
+    let groundY = canvas.height - 50;
+    let gameOver = false;
+    let score = 0;
+
+    // Load player and background images from the internet
+    player.image.src = 'https://www.pngmart.com/files/6/Running-Person-PNG-Free-Download.png';  // Example running character image
+    background.image.src = 'https://example.com/sky_background.jpg';  // Replace with actual day/night cycle background image
+
+    // Season change logic
+    let isDay = true;  // Day/Night toggle
+    let season = 'summer';  // Starting season
+
+    // Key event to handle jumping
+    canvas.addEventListener("touchstart", () => {
+      if (!player.jumping && !gameOver) {
+        player.jumping = true;
+      }
+    });
+
+    // Start the game
     function startGame() {
-      if (!gameStarted) {
-        generateCards();
-        startTimer();
-        gameStarted = true;
-        document.querySelector("#timer").textContent = "Time: 00:00";
-        document.querySelector("#combo").textContent = "Combo: 0";
-        document.querySelector("#turn").textContent = `Player: ${playerTurn}`;
-        document.querySelector(".controls button:nth-child(1)").textContent = "Restart Game";
+      document.getElementById("startScreen").style.display = "none";
+      player.y = canvas.height - 100;
+      player.dy = 0;
+      gameOver = false;
+      score = 0;
+      changeSeason();
+      animate();
+    }
+
+    // Change season (and day/night cycle)
+    function changeSeason() {
+      if (score % 1000 === 0) {
+        season = (season === 'summer') ? 'winter' : 'summer';  // Switch seasons
+      }
+
+      // Day/Night cycle logic (based on score)
+      if (score % 200 === 0) {
+        isDay = !isDay;
+        background.color = isDay ? '#3498db' : '#2c3e50'; // Blue for day, dark for night
+        background.image.src = isDay ? 'https://example.com/day_sky.jpg' : 'https://example.com/night_sky.jpg'; // Replace with actual URLs for day and night sky images
       }
     }
 
-    // Generate Cards
-    function generateCards() {
-      let allCards = [...emojis, ...emojis];
-      allCards = shuffle(allCards);
-
-      const cardGrid = document.getElementById("card-grid");
-      cardGrid.innerHTML = "";
-
-      allCards.forEach((emoji) => {
-        const card = document.createElement("div");
-        card.classList.add("card");
-        card.innerHTML = emoji;
-        card.addEventListener("click", () => flipCard(card));
-        cardGrid.appendChild(card);
-      });
-    }
-
-    // Shuffle Array (Fisher-Yates algorithm)
-    function shuffle(array) {
-      for (let i = array.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [array[i], array[j]] = [array[j], array[i]];
+    // Game loop
+    function animate() {
+      if (gameOver) {
+        document.getElementById("startScreen").style.display = "block";
+        document.getElementById("startScreen").textContent = "Game Over! Tap to Restart";
+        return;
       }
-      return array;
-    }
 
-    // Flip Card Logic
-    function flipCard(card) {
-      if (gamePaused || flippedCards.length === 2 || card.classList.contains("flipped") || matchedCards.includes(card)) return;
-      flipSound.play();
-      card.classList.add("flipped");
-      flippedCards.push(card);
+      // Background and season change
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = background.color;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(background.image, 0, 0, canvas.width, canvas.height);
 
-      if (flippedCards.length === 2) {
-        checkMatch();
+      // Handle player gravity and jumping
+      if (player.jumping) {
+        player.dy = player.jumpPower;
+        player.jumping = false;
       }
-    }
+      player.dy += player.gravity;
+      player.y += player.dy;
 
-    // Check Card Match
-    function checkMatch() {
-      const [card1, card2] = flippedCards;
-      if (card1.innerHTML === card2.innerHTML) {
-        matchSound.play();
-        matchedCards.push(card1, card2);
-        comboCount++;
-        document.querySelector("#combo").textContent = `Combo: ${comboCount}`;
-        resetFlippedCards();
-        checkWin();
-      } else {
-        wrongSound.play();
-        setTimeout(() => {
-          card1.classList.remove("flipped");
-          card2.classList.remove("flipped");
-          resetFlippedCards();
-        }, 1000);
+      // Prevent player from falling through the ground
+      if (player.y >= groundY - player.height) {
+        player.y = groundY - player.height;
+        player.dy = 0;
       }
+
+      // Draw the player (character running)
+      ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
+
+      // Update score
+      score++;
+      document.getElementById('score').innerText = `Score: ${score}`;
+
+      // Change season or day/night cycle
+      changeSeason();
+
+      // Loop the animation
+      requestAnimationFrame(animate);
     }
 
-    // Reset Flipped Cards Array
-    function resetFlippedCards() {
-      flippedCards = [];
-      moves++;
-      document.querySelector("#turn").textContent = `Player: ${playerTurn}`;
-      if (moves % totalPlayers === 0) {
-        playerTurn = playerTurn % totalPlayers + 1;
+    // Start the game
+    canvas.addEventListener("touchstart", () => {
+      if (gameOver) {
+        startGame();
       }
-    }
+    });
 
-    // Check for Win Condition
-    function checkWin() {
-      if (matchedCards.length === cards.length) {
-        winSound.play();
-        showCelebration();
-      }
-    }
-
-    // Show Celebration (Confetti & Fireworks)
-    function showCelebration() {
-      const confettiCanvas = document.getElementById("confetti-canvas");
-      confettiCanvas.style.display = "block";
-      // Add confetti animation here (using a confetti library or custom animation)
-    }
-
-    // Timer Function
-    function startTimer() {
-      timerInterval = setInterval(() => {
-        timerSeconds++;
-        const minutes = Math.floor(timerSeconds / 60);
-        const seconds = timerSeconds % 60;
-        document.querySelector("#timer").textContent = `Time: ${minutes < 10 ? "0" + minutes : minutes}:${seconds < 10 ? "0" + seconds : seconds}`;
-      }, 1000);
-    }
-
-    // Pause/Resume Game
-    function togglePause() {
-      if (gamePaused) {
-        startTimer();
-        gamePaused = false;
-        bgMusic.play();
-      } else {
-        clearInterval(timerInterval);
-        gamePaused = true;
-        bgMusic.pause();
-      }
-    }
-
-    // Use Hint (show one pair of matching cards for a brief moment)
-    function useHint() {
-      if (hintsUsed >= 3) return;
-      hintsUsed++;
-      const unmatchedCards = document.querySelectorAll(".card:not(.matched):not(.flipped)");
-      const randomPair = getRandomPair(unmatchedCards);
-    }
+    // Start game automatically when ready
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("startScreen").style.display = "block";
+    });
   </script>
 </body>
 </html>
